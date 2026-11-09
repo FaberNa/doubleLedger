@@ -1,0 +1,12 @@
+# Local IDE settings
+.idea/
+
+# Local configuration
+.env
+.env.local
+
+# Build and test artifacts
+/bin/
+/doubleLedger
+/coverage.out
+*.test
