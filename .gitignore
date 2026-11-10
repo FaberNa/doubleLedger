@@ -10,3 +10,6 @@
 /doubleLedger
 /coverage.out
 *.test
+
+# Pinned Protocol Buffers tool binaries
+/.tools/

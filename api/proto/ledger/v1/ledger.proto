@@ -1,0 +1,185 @@
+syntax = "proto3";
+
+package ledger.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "doubleLedger/api/gen/ledger/v1;ledgerv1";
+
+// LedgerService records immutable accounting facts in a single-currency ledger.
+// Validation constraints in comments are enforced by the application, not proto3.
+service LedgerService {
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  rpc PostJournalEntry(PostJournalEntryRequest) returns (PostJournalEntryResponse);
+  rpc GetJournalEntry(GetJournalEntryRequest) returns (GetJournalEntryResponse);
+  rpc ListJournalEntries(ListJournalEntriesRequest) returns (ListJournalEntriesResponse);
+  rpc ListAccountPostings(ListAccountPostingsRequest) returns (ListAccountPostingsResponse);
+  rpc GetAccountBalance(GetAccountBalanceRequest) returns (GetAccountBalanceResponse);
+}
+
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  ACCOUNT_TYPE_ASSET = 1;
+  ACCOUNT_TYPE_LIABILITY = 2;
+  ACCOUNT_TYPE_EQUITY = 3;
+  ACCOUNT_TYPE_EXPENSE = 4;
+  ACCOUNT_TYPE_REVENUE = 5;
+}
+
+enum Side {
+  SIDE_UNSPECIFIED = 0;
+  SIDE_DEBIT = 1;
+  SIDE_CREDIT = 2;
+}
+
+message Account {
+  // Server-generated UUID.
+  string id = 1;
+  // Unique uppercase ASCII code, at most 64 characters.
+  string code = 2;
+  // Trimmed name, 1 to 255 Unicode code points.
+  string name = 3;
+  AccountType type = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// PostingInput contains caller-owned fields; IDs are assigned by the server.
+message PostingInput {
+  string account_id = 1;
+  // UNSPECIFIED and unknown enum values are invalid.
+  Side side = 2;
+  // Strictly positive smallest currency units: 100 means 1 EUR for EUR.
+  int64 amount_minor = 3;
+}
+
+message Posting {
+  string id = 1;
+  string journal_entry_id = 2;
+  string account_id = 3;
+  Side side = 4;
+  int64 amount_minor = 5;
+  // One-based position in the journal entry, preserving submitted line order.
+  uint32 line_number = 6;
+}
+
+message JournalEntry {
+  string id = 1;
+  string description = 2;
+  google.protobuf.Timestamp posted_at = 3;
+  // Between 2 and 1,000 lines involving at least two distinct accounts.
+  // Total debits equal total credits and both totals fit int64.
+  repeated Posting postings = 4;
+  // Currency configured for the service; callers cannot override it per entry.
+  string currency_code = 5;
+}
+
+// JournalEntrySummary keeps list responses bounded independently of line count.
+// Use GetJournalEntry to retrieve the complete ordered postings.
+message JournalEntrySummary {
+  string id = 1;
+  string description = 2;
+  google.protobuf.Timestamp posted_at = 3;
+  string currency_code = 4;
+  uint32 posting_count = 5;
+}
+
+message AccountBalance {
+  string account_id = 1;
+  string currency_code = 2;
+  int64 debit_total_minor = 3;
+  int64 credit_total_minor = 4;
+  // Debits minus credits for assets/expenses, credits minus debits otherwise.
+  // Negative balances are allowed.
+  int64 normal_balance_minor = 5;
+}
+
+message AccountPosting {
+  Posting posting = 1;
+  // Timestamp of the containing journal entry.
+  google.protobuf.Timestamp posted_at = 2;
+}
+
+message CreateAccountRequest {
+  // ASCII letters, digits, '_' and '-'; 1 to 64 characters, no spaces.
+  // Normalized to uppercase before checking uniqueness.
+  string code = 1;
+  // Required, trimmed, at most 255 Unicode code points.
+  string name = 2;
+  // UNSPECIFIED and unknown enum values are invalid.
+  AccountType type = 3;
+}
+message CreateAccountResponse {
+  Account account = 1;
+}
+
+message GetAccountRequest {
+  string account_id = 1;
+}
+message GetAccountResponse {
+  Account account = 1;
+}
+
+message ListAccountsRequest {
+  // Zero selects 50. Valid explicit values: 1 to 200.
+  int32 page_size = 1;
+  // Opaque cursor returned by the preceding response. Empty starts a new list.
+  string page_token = 2;
+}
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+  // Empty when there are no more results at query time.
+  string next_page_token = 2;
+}
+
+message PostJournalEntryRequest {
+  // Required, 1 to 128 visible ASCII characters (0x21 to 0x7e).
+  // Same key and normalized payload return the original entry; a different
+  // payload returns AlreadyExists. The key is scoped to the single ledger.
+  string idempotency_key = 1;
+  // Required, trimmed, at most 1,000 Unicode code points.
+  string description = 2;
+  // Order is significant for idempotency. At least two distinct accounts.
+  repeated PostingInput postings = 3;
+}
+message PostJournalEntryResponse {
+  // Returned both for an initial post and a successful idempotent retry.
+  JournalEntry journal_entry = 1;
+}
+
+message GetJournalEntryRequest {
+  string journal_entry_id = 1;
+}
+message GetJournalEntryResponse {
+  JournalEntry journal_entry = 1;
+}
+
+message ListJournalEntriesRequest {
+  // Zero selects 50. Valid explicit values: 1 to 200.
+  int32 page_size = 1;
+  string page_token = 2;
+}
+message ListJournalEntriesResponse {
+  repeated JournalEntrySummary journal_entries = 1;
+  string next_page_token = 2;
+}
+
+message ListAccountPostingsRequest {
+  string account_id = 1;
+  // Zero selects 50. Valid explicit values: 1 to 200.
+  int32 page_size = 2;
+  string page_token = 3;
+}
+message ListAccountPostingsResponse {
+  repeated AccountPosting postings = 1;
+  string next_page_token = 2;
+}
+
+message GetAccountBalanceRequest {
+  string account_id = 1;
+}
+message GetAccountBalanceResponse {
+  // Totals and normal balance are read from one consistent database query.
+  AccountBalance balance = 1;
+}
