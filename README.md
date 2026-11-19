@@ -279,5 +279,8 @@ to generate observations.
 
 ## Current status
 
-The accounting domain, versioned gRPC contract, and initial PostgreSQL schema
-are in place. The gRPC server implements `CreateAccount` and `GetAccount`.
+- **PostgreSQL:** the initial `ledger` schema is managed with Goose migrations.
+- **gRPC server:** the versioned `ledger.v1` API implements `CreateAccount` and
+  `GetAccount`, backed by PostgreSQL.
+- **Metrics:** the HTTP `/metrics` endpoint exposes Go runtime and gRPC request
+  metrics with OpenMetrics support.
