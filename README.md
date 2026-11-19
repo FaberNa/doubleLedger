@@ -249,6 +249,8 @@ DATABASE_URL='postgres://doubleledger:doubleledger@127.0.0.1:5432/doubleledger?s
 The server listens on `127.0.0.1:50051` by default. Set `GRPC_ADDR` to change
 the address. The local listener uses plaintext gRPC.
 
+To try the running server manually, see the [gRPC request examples](docs/grpc-examples.md).
+
 Run the gRPC integration test against the migrated development database.
 
 ```sh
