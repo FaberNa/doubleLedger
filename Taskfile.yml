@@ -6,8 +6,29 @@ vars:
   BUF_VERSION: v1.50.0
   PROTOBUF_GO_VERSION: v1.36.6
   GRPC_GO_PLUGIN_VERSION: v1.5.1
+  GOOSE_VERSION: v3.26.0
 
 tasks:
+  db:tools:
+    desc: Install the pinned Goose migration tool locally
+    env:
+      GOBIN: '{{.TOOLS_BIN}}'
+    cmds:
+      - go install github.com/pressly/goose/v3/cmd/goose@{{.GOOSE_VERSION}}
+
+  db:up:
+    desc: Start local PostgreSQL and wait for it to accept connections
+    cmds:
+      - docker compose up --detach --wait postgres
+
+  db:migrate:
+    desc: Apply pending PostgreSQL migrations
+    cmds:
+      - |
+        export GOOSE_DRIVER=postgres
+        export GOOSE_DBSTRING="${GOOSE_DBSTRING:-postgres://doubleledger:doubleledger@127.0.0.1:5432/doubleledger?sslmode=disable}"
+        "{{.TOOLS_BIN}}/goose" -dir migrations up
+
   default:
     cmds:
       - task: check

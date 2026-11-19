@@ -189,6 +189,56 @@ After editing `ledger.proto`, run `task proto:generate` to update the checked-in
 
 GitHub Actions uses the same tasks to check the Protobuf contract, generated files, and Go code on pushes and pull requests.
 
+### Local PostgreSQL
+
+With Docker and Compose available, run these commands from the repository root.
+
+```sh
+task db:tools
+task db:up
+task db:migrate
+```
+
+PostgreSQL listens on `127.0.0.1:5432`. The local database, user, and password are all
+`doubleledger`. Compose keeps data in a named volume. Use `docker compose down`
+to stop the local database and keep its data. Set `GOOSE_DBSTRING` to apply
+the migrations to a different PostgreSQL instance.
+
+#### Schema and migrations
+
+The [initial SQL migration](migrations/00001_create_ledger.sql) creates the
+`ledger` schema and three tables.
+
+| Table | Stores |
+| --- | --- |
+| `ledger.accounts` | Accounts with a unique code and an accounting type. |
+| `ledger.journal_entries` | Journal entry descriptions, posting timestamps, and unique idempotency keys. |
+| `ledger.postings` | Debit or credit lines in each entry, with a reference to the account and a positive amount in minor currency units. |
+
+PostgreSQL enforces foreign keys, row-level checks, and uniqueness, including
+one line number per journal entry. The Go domain validates rules that span
+multiple lines, such as equal debit and credit totals. The journal posting use
+case will apply those rules when saving an entry.
+
+Goose applies the pending SQL migrations in order. With the default local
+connection settings, it records its history in `public.goose_db_version`.
+On a fresh database, `version_id = 0` marks the starting point and
+`version_id = 1` records the applied initial migration. Two rows therefore
+represent one applied SQL migration. A second `task db:migrate` reports that
+there are no migrations to run.
+
+To inspect the history locally, run:
+
+```sh
+docker compose exec -T postgres psql -U doubleledger -d doubleledger \
+  -c 'SELECT version_id, is_applied FROM public.goose_db_version ORDER BY id;'
+```
+
+To verify the migration locally, run `task db:migrate` on a fresh PostgreSQL
+instance, inspect the version history, and check that `ledger.accounts`,
+`ledger.journal_entries`, and `ledger.postings` exist. Run `task db:migrate`
+again to confirm that there are no pending migrations.
+
 ## Current status
 
-The accounting domain and versioned gRPC contract are in place. The executable still prints a placeholder message. The next phase adds persistence and use cases.
+The accounting domain, versioned gRPC contract, and initial PostgreSQL schema are in place. The executable still prints a placeholder message. The next phase adds the use cases and connects them to PostgreSQL.

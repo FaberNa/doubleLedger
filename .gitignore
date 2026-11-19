@@ -11,5 +11,5 @@
 /coverage.out
 *.test
 
-# Pinned Protocol Buffers tool binaries
+# Pinned development tool binaries
 /.tools/
