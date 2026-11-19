@@ -182,7 +182,6 @@ asdf install
 task proto:tools
 task proto:check
 task check
-go run .
 ```
 
 After editing `ledger.proto`, run `task proto:generate` to update the checked-in Go files. See the [gRPC contract guide](docs/grpc-contract.md#generation-and-verification) for the tooling workflow.
@@ -239,6 +238,28 @@ instance, inspect the version history, and check that `ledger.accounts`,
 `ledger.journal_entries`, and `ledger.postings` exist. Run `task db:migrate`
 again to confirm that there are no pending migrations.
 
+### Run and test CreateAccount
+
+With the local database running and migrated, start the gRPC server.
+
+```sh
+DATABASE_URL='postgres://doubleledger:doubleledger@127.0.0.1:5432/doubleledger?sslmode=disable' go run .
+```
+
+The server listens on `127.0.0.1:50051` by default. Set `GRPC_ADDR` to change
+the address. The local listener uses plaintext gRPC.
+
+Run the gRPC integration test against the migrated development database.
+
+```sh
+TEST_DATABASE_URL='postgres://doubleledger:doubleledger@127.0.0.1:5432/doubleledger?sslmode=disable' task check
+```
+
+The test verifies that the returned account matches the persisted row,
+invalid input is rejected, and concurrent requests with equivalent codes
+create a single account. It removes the test accounts it creates.
+
 ## Current status
 
-The accounting domain, versioned gRPC contract, and initial PostgreSQL schema are in place. The executable still prints a placeholder message. The next phase adds the use cases and connects them to PostgreSQL.
+The accounting domain, versioned gRPC contract, and initial PostgreSQL schema
+are in place. The gRPC server implements `CreateAccount`.
