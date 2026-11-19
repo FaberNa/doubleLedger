@@ -261,6 +261,22 @@ The test verifies that the returned account matches the persisted row,
 invalid input is rejected, and concurrent requests with equivalent codes
 create a single account. It removes the test accounts it creates.
 
+### Metrics
+
+The server exposes Go runtime metrics and unary gRPC metrics over HTTP at
+`127.0.0.1:9091/metrics` by default. Set `METRICS_ADDR` to change the listening
+address. To request OpenMetrics 1.0 explicitly:
+
+```sh
+curl -fsS -H 'Accept: application/openmetrics-text; version=1.0.0' \
+  http://127.0.0.1:9091/metrics
+```
+
+After calling a gRPC method, look for `grpc_server_handled_total` for completed
+calls by method and status, and `grpc_server_handling_seconds` for the latency
+histogram by method. Try a call from the [gRPC examples](docs/grpc-examples.md)
+to generate observations.
+
 ## Current status
 
 The accounting domain, versioned gRPC contract, and initial PostgreSQL schema
