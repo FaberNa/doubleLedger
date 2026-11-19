@@ -14,24 +14,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Install Protocol Buffers tools
-        run: make proto-tools
-      - name: Check Protocol Buffers contract and generated code
-        run: make proto-check
-      - name: Check Protocol Buffers compatibility with main
+      - uses: asdf-vm/actions/setup@v4
+      - name: Install Go and Task
         run: |
-          if git cat-file -e origin/main:buf.yaml 2>/dev/null; then
-            .tools/bin/buf breaking --against '.git#branch=origin/main'
-          fi
-      - name: Check formatting
-        run: test -z "$(gofmt -l .)"
-      - name: Vet
-        run: go vet ./...
-      - name: Test
-        run: go test -race ./...
-      - name: Build
-        run: go build ./...
+          asdf plugin add golang https://github.com/asdf-community/asdf-golang.git
+          asdf plugin add task https://github.com/particledecay/asdf-task.git
+          asdf install
+      - name: Install Protocol Buffers tools
+        run: task proto:tools
+      - name: Check Protocol Buffers contract and generated code
+        run: task proto:check
+      - name: Check Protocol Buffers compatibility with main
+        run: task proto:breaking
+      - name: Check Go formatting, tests, and build
+        run: task check
