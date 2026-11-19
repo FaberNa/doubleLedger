@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
 
 	ledgerv1 "doubleLedger/api/gen/ledger/v1"
 	"doubleLedger/internal/application"
@@ -27,13 +28,7 @@ func (s *Server) CreateAccount(ctx context.Context, request *ledgerv1.CreateAcco
 	account, err := s.accounts.Create(ctx, request.GetCode(), request.GetName(), accountType(request.GetType()))
 	switch {
 	case err == nil:
-		return &ledgerv1.CreateAccountResponse{Account: &ledgerv1.Account{
-			Id:        account.ID(),
-			Code:      account.Code(),
-			Name:      account.Name(),
-			Type:      request.GetType(),
-			CreatedAt: timestamppb.New(account.CreatedAt()),
-		}}, nil
+		return &ledgerv1.CreateAccountResponse{Account: accountMessage(account)}, nil
 	case errors.Is(err, domain.ErrInvalidArgument):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, application.ErrAccountCodeExists):
@@ -43,6 +38,33 @@ func (s *Server) CreateAccount(ctx context.Context, request *ledgerv1.CreateAcco
 	default:
 		log.Printf("create account: %v", err)
 		return nil, status.Error(codes.Internal, "could not create account")
+	}
+}
+
+func (s *Server) GetAccount(ctx context.Context, request *ledgerv1.GetAccountRequest) (*ledgerv1.GetAccountResponse, error) {
+	account, err := s.accounts.Get(ctx, request.GetAccountId())
+	switch {
+	case err == nil:
+		return &ledgerv1.GetAccountResponse{Account: accountMessage(account)}, nil
+	case errors.Is(err, domain.ErrInvalidArgument):
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, application.ErrAccountNotFound):
+		return nil, status.Error(codes.NotFound, err.Error())
+	case ctx.Err() != nil:
+		return nil, status.FromContextError(ctx.Err()).Err()
+	default:
+		log.Printf("get account: %v", err)
+		return nil, status.Error(codes.Internal, "could not get account")
+	}
+}
+
+func accountMessage(account domain.Account) *ledgerv1.Account {
+	return &ledgerv1.Account{
+		Id:        account.ID(),
+		Code:      account.Code(),
+		Name:      account.Name(),
+		Type:      ledgerv1.AccountType(ledgerv1.AccountType_value["ACCOUNT_TYPE_"+strings.ToUpper(string(account.Type()))]),
+		CreatedAt: timestamppb.New(account.CreatedAt()),
 	}
 }
 

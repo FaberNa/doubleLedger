@@ -20,9 +20,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
 )
 
-func TestCreateAccountPostgres(t *testing.T) {
+func TestAccountsPostgres(t *testing.T) {
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("set TEST_DATABASE_URL to a migrated development database")
@@ -55,6 +56,42 @@ func TestCreateAccountPostgres(t *testing.T) {
 	defer conn.Close()
 	client := ledgerv1.NewLedgerServiceClient(conn)
 	const asset = ledgerv1.AccountType_ACCOUNT_TYPE_ASSET
+
+	t.Run("reads an existing account by UUID", func(t *testing.T) {
+		created, err := client.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Code: testAccountCode(t, pool),
+			Name: "Sales",
+			Type: ledgerv1.AccountType_ACCOUNT_TYPE_REVENUE,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		account := created.GetAccount()
+		response, err := client.GetAccount(ctx, &ledgerv1.GetAccountRequest{AccountId: strings.ToUpper(account.GetId())})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !proto.Equal(response.GetAccount(), account) {
+			t.Fatalf("GetAccount returned %v, want %v", response.GetAccount(), account)
+		}
+	})
+
+	t.Run("rejects invalid and missing account IDs", func(t *testing.T) {
+		for _, tc := range []struct {
+			id   string
+			want codes.Code
+		}{
+			{"", codes.InvalidArgument},
+			{"invalid", codes.InvalidArgument},
+			{strings.ReplaceAll(uuid.NewString(), "-", ""), codes.InvalidArgument},
+			{uuid.NewString(), codes.NotFound},
+		} {
+			_, err := client.GetAccount(ctx, &ledgerv1.GetAccountRequest{AccountId: tc.id})
+			if status.Code(err) != tc.want {
+				t.Errorf("GetAccount(%q) returned %v, want %v", tc.id, err, tc.want)
+			}
+		}
+	})
 
 	t.Run("creates and persists the normalized account", func(t *testing.T) {
 		code := testAccountCode(t, pool)

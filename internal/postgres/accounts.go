@@ -4,16 +4,39 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"doubleLedger/internal/application"
 	"doubleLedger/internal/domain"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Accounts struct {
 	pool *pgxpool.Pool
+}
+
+func (a *Accounts) FindAccount(ctx context.Context, id string) (domain.Account, error) {
+	var code, name, accountType string
+	var createdAt time.Time
+	err := a.pool.QueryRow(ctx, `
+		SELECT code, name, account_type, created_at
+		FROM ledger.accounts
+		WHERE id = $1
+	`, id).Scan(&code, &name, &accountType, &createdAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Account{}, application.ErrAccountNotFound
+	}
+	if err != nil {
+		return domain.Account{}, fmt.Errorf("query account: %w", err)
+	}
+	account, err := domain.NewAccount(id, code, name, domain.AccountType(accountType), createdAt)
+	if err != nil {
+		return domain.Account{}, fmt.Errorf("invalid stored account: %v", err)
+	}
+	return account, nil
 }
 
 func NewAccounts(pool *pgxpool.Pool) *Accounts {
