@@ -172,19 +172,23 @@ Before exposing the service beyond the local environment, we need concrete decis
 
 ## Local development
 
-Install Go 1.27 or later and ensure `go` is available on your `PATH`. The bootstrap has been verified with Go 1.27.3.
+Install [asdf](https://asdf-vm.com/guide/getting-started.html) and add its shims to your `PATH`. Register the Go and Task plugins once, then install the versions in `.tool-versions` from the repository root.
 
 ```sh
+asdf plugin add golang https://github.com/asdf-community/asdf-golang.git
+asdf plugin add task https://github.com/particledecay/asdf-task.git
+asdf install
+
+task proto:tools
+task proto:check
+task check
 go run .
-go vet ./...
-go test -race ./...
-go build ./...
 ```
 
-The executable currently prints a placeholder message and exits. PostgreSQL and Protocol Buffers tooling will be introduced in their respective implementation phases.
+After editing `ledger.proto`, run `task proto:generate` to update the checked-in Go files. See the [gRPC contract guide](docs/grpc-contract.md#generation-and-verification) for the tooling workflow.
 
-GitHub Actions checks formatting, runs vet and tests with the race detector, and builds the project on pushes and pull requests. There are no tests yet; domain tests will arrive with the accounting domain.
+GitHub Actions uses the same tasks to check the Protobuf contract, generated files, and Go code on pushes and pull requests.
 
 ## Current status
 
-The bootstrap includes the Go module, a minimal executable, local development instructions, and CI. The ledger and gRPC APIs are not implemented yet. The next step is phase 1: modeling the domain and verifying its rules.
+The accounting domain and versioned gRPC contract are in place. The executable still prints a placeholder message. The next phase adds persistence and use cases.

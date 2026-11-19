@@ -94,23 +94,24 @@ after a lost success response may return `AlreadyExists` for its unique code.
 
 ## Generation and verification
 
-Requirements: Go 1.27+, Make, and network access for initial Go tool/module
-downloads. Buf includes a Protobuf compiler, so a separate `protoc` installation
-is not required. Generation uses local plugins, not a remote schema registry.
+Install Go and Task using the [local development setup](../README.md#local-development).
+The initial tool and module downloads require network access. Buf includes a
+Protobuf compiler and runs the locally installed generation plugins.
 
 ```sh
-make proto-tools     # Install pinned tools into ignored .tools/bin/
-make proto-generate  # Regenerate Go messages and gRPC stubs
-make proto-check     # Format, lint, compile, and compare regenerated files
-make check           # Go formatting, vet, race-enabled tests, and build
+task proto:tools     # Install pinned tools into ignored .tools/bin/
+task proto:generate  # Regenerate Go messages and gRPC stubs
+task proto:check     # Format, lint, compile, and compare regenerated files
+task check           # Go formatting, vet, race-enabled tests, and build
 ```
 
-Tool versions are pinned in `Makefile`; application runtime dependencies are
-pinned in `go.mod` and `go.sum`. `buf.yaml` selects lint and compatibility rules;
+Go and Task versions are pinned in `.tool-versions`. Buf and the generators are
+pinned in `Taskfile.yml`. Application dependencies are tracked in `go.mod` and
+`go.sum`. `buf.yaml` selects lint and compatibility rules;
 `buf.gen.yaml` selects generator paths and output directories.
 
-CI runs these checks within the existing `check` job. Once main contains the Buf
-configuration, CI also checks schema compatibility against main. Incompatible
+CI runs these checks within the `check` job. `task proto:breaking` checks schema
+compatibility against `origin/main` when it contains the Buf configuration. Incompatible
 field deletions or changes must be resolved before merge; removed field numbers
 and names must be reserved rather than reused.
 

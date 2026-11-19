@@ -1,0 +1,66 @@
+version: '3'
+
+vars:
+  TOOLS_BIN: '{{.ROOT_DIR}}/.tools/bin'
+  BUF: '"{{.TOOLS_BIN}}/buf"'
+  BUF_VERSION: v1.50.0
+  PROTOBUF_GO_VERSION: v1.36.6
+  GRPC_GO_PLUGIN_VERSION: v1.5.1
+
+tasks:
+  default:
+    cmds:
+      - task: check
+
+  proto:tools:
+    desc: Install pinned Protocol Buffers tools locally
+    env:
+      GOBIN: '{{.TOOLS_BIN}}'
+    cmds:
+      - go install github.com/bufbuild/buf/cmd/buf@{{.BUF_VERSION}}
+      - go install google.golang.org/protobuf/cmd/protoc-gen-go@{{.PROTOBUF_GO_VERSION}}
+      - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@{{.GRPC_GO_PLUGIN_VERSION}}
+
+  proto:generate:
+    desc: Regenerate Go messages and gRPC stubs
+    cmds:
+      - '{{.BUF}} generate'
+
+  proto:lint:
+    desc: Check Protobuf formatting, lint rules, and compilation
+    cmds:
+      - '{{.BUF}} format --diff --exit-code'
+      - '{{.BUF}} lint'
+      - '{{.BUF}} build -o /dev/null'
+
+  proto:check:
+    desc: Check the contract and compare regenerated Go files
+    cmds:
+      - task: proto:lint
+      - |
+        set -eu
+        generated_dir=$(mktemp -d)
+        trap 'rm -rf "$generated_dir"' EXIT
+        {{.BUF}} generate --output "$generated_dir"
+        diff -ru api/gen "$generated_dir/api/gen"
+
+  proto:breaking:
+    desc: Check Protobuf compatibility against origin/main when configured
+    cmds:
+      - |
+        if git cat-file -e origin/main:buf.yaml 2>/dev/null; then
+          {{.BUF}} breaking --against '.git#branch=origin/main'
+        fi
+
+  check:
+    desc: Check Go formatting, vet, race-enabled tests, and build
+    cmds:
+      - |
+        unformatted=$(gofmt -l .)
+        if [ -n "$unformatted" ]; then
+          printf '%s\n' "$unformatted"
+          exit 1
+        fi
+      - go vet ./...
+      - go test -race ./...
+      - go build ./...
