@@ -1,6 +1,9 @@
 # Local IDE settings
 .idea/
 
+# macOS folder metadata
+.DS_Store
+
 # Local configuration
 .env
 .env.local
