@@ -3,7 +3,7 @@
 The `ledger.v1.LedgerService` contract is defined in
 `api/proto/ledger/v1/ledger.proto`. Generated Go messages, client stubs, and server
 interfaces are checked into `api/gen/ledger/v1`. Never edit generated files.
-This phase defines the API; handlers and PostgreSQL are not implemented yet.
+See [gRPC request examples](grpc-examples.md) for the implemented operations.
 
 ## Operations
 

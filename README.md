@@ -257,9 +257,9 @@ Run the gRPC integration test against the migrated development database.
 TEST_DATABASE_URL='postgres://doubleledger:doubleledger@127.0.0.1:5432/doubleledger?sslmode=disable' task check
 ```
 
-The test verifies that the returned account matches the persisted row,
-invalid input is rejected, and concurrent requests with equivalent codes
-create a single account. It removes the test accounts it creates.
+The test covers account creation and lookup, invalid inputs, missing accounts,
+and concurrent creation requests with equivalent codes. It removes the test
+accounts it creates.
 
 ### Metrics
 
@@ -280,4 +280,4 @@ to generate observations.
 ## Current status
 
 The accounting domain, versioned gRPC contract, and initial PostgreSQL schema
-are in place. The gRPC server implements `CreateAccount`.
+are in place. The gRPC server implements `CreateAccount` and `GetAccount`.
