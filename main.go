@@ -77,7 +77,10 @@ func run() error {
 
 	server := grpc.NewServer(grpc.UnaryInterceptor(rpcMetrics.UnaryServerInterceptor()))
 	defer server.Stop()
-	ledgerv1.RegisterLedgerServiceServer(server, ledgergrpc.NewServer(application.NewAccounts(postgres.NewAccounts(pool))))
+	ledgerv1.RegisterLedgerServiceServer(server, ledgergrpc.NewServer(
+		application.NewAccounts(postgres.NewAccounts(pool)),
+		application.NewJournal(postgres.NewJournal(pool)),
+	))
 	log.Printf("DoubleLedger listening on %s", listener.Addr())
 	log.Printf("Metrics listening on http://%s/metrics", metricsListener.Addr())
 
