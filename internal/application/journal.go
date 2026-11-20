@@ -14,6 +14,7 @@ import (
 )
 
 var ErrIdempotencyConflict = errors.New("idempotency key already used with different journal data")
+var ErrJournalEntryNotFound = errors.New("journal entry not found")
 
 type PostingInput struct {
 	AccountID string
@@ -24,6 +25,7 @@ type PostingInput struct {
 type JournalStore interface {
 	// Save atomically inserts the whole entry or returns the entry already stored for the key.
 	Save(context.Context, string, domain.JournalEntry) (domain.JournalEntry, error)
+	FindJournalEntry(context.Context, string) (domain.JournalEntry, error)
 }
 
 type Journal struct {
@@ -32,6 +34,14 @@ type Journal struct {
 
 func NewJournal(store JournalStore) *Journal {
 	return &Journal{store: store}
+}
+
+func (j *Journal) Get(ctx context.Context, entryID string) (domain.JournalEntry, error) {
+	id, err := uuid.Parse(entryID)
+	if err != nil || !strings.EqualFold(entryID, id.String()) {
+		return domain.JournalEntry{}, fmt.Errorf("%w: journal entry ID must be a UUID", domain.ErrInvalidArgument)
+	}
+	return j.store.FindJournalEntry(ctx, id.String())
 }
 
 func (j *Journal) Post(ctx context.Context, key, description string, inputs []PostingInput) (domain.JournalEntry, error) {

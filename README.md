@@ -313,7 +313,7 @@ to generate observations.
 
 - **PostgreSQL:** the initial `ledger` schema is managed with Goose migrations.
 - **gRPC server:** the versioned `ledger.v1` API implements `CreateAccount`,
-  `GetAccount`, and `PostJournalEntry`, backed by PostgreSQL. Journal amounts
-  are stored in EUR cents.
+  `GetAccount`, `PostJournalEntry`, and `GetJournalEntry`, backed by PostgreSQL.
+  Journal amounts are stored in EUR cents.
 - **Metrics:** the HTTP `/metrics` endpoint exposes Go runtime and gRPC request
   metrics with OpenMetrics support.

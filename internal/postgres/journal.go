@@ -62,14 +62,23 @@ func (j *Journal) Save(ctx context.Context, key string, entry domain.JournalEntr
 	return stored, nil
 }
 
-func readJournalByKey(ctx context.Context, tx pgx.Tx, key string) (domain.JournalEntry, error) {
-	rows, err := tx.Query(ctx, `
+const journalWithPostings = `
 		SELECT e.id, e.description, e.posted_at, p.id, p.account_id, p.side, p.amount_minor
 		FROM ledger.journal_entries AS e
 		JOIN ledger.postings AS p ON p.journal_entry_id = e.id
-		WHERE e.idempotency_key = $1
-		ORDER BY p.line_number
-	`, key)
+`
+
+func (j *Journal) FindJournalEntry(ctx context.Context, id string) (domain.JournalEntry, error) {
+	rows, err := j.pool.Query(ctx, journalWithPostings+`WHERE e.id = $1 ORDER BY p.line_number`, id)
+	return readJournal(rows, err)
+}
+
+func readJournalByKey(ctx context.Context, tx pgx.Tx, key string) (domain.JournalEntry, error) {
+	rows, err := tx.Query(ctx, journalWithPostings+`WHERE e.idempotency_key = $1 ORDER BY p.line_number`, key)
+	return readJournal(rows, err)
+}
+
+func readJournal(rows pgx.Rows, err error) (domain.JournalEntry, error) {
 	if err != nil {
 		return domain.JournalEntry{}, fmt.Errorf("read existing journal entry: %w", err)
 	}
@@ -89,6 +98,9 @@ func readJournalByKey(ctx context.Context, tx pgx.Tx, key string) (domain.Journa
 	}
 	if err := rows.Err(); err != nil {
 		return domain.JournalEntry{}, fmt.Errorf("read journal postings: %w", err)
+	}
+	if len(postings) == 0 {
+		return domain.JournalEntry{}, application.ErrJournalEntryNotFound
 	}
 	entry, err := domain.NewJournalEntry(id, description, postedAt, postings)
 	if err != nil {
