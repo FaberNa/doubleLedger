@@ -44,6 +44,23 @@ func (s *Server) PostJournalEntry(ctx context.Context, request *ledgerv1.PostJou
 	}
 }
 
+func (s *Server) GetJournalEntry(ctx context.Context, request *ledgerv1.GetJournalEntryRequest) (*ledgerv1.GetJournalEntryResponse, error) {
+	entry, err := s.journal.Get(ctx, request.GetJournalEntryId())
+	switch {
+	case err == nil:
+		return &ledgerv1.GetJournalEntryResponse{JournalEntry: journalMessage(entry)}, nil
+	case errors.Is(err, domain.ErrInvalidArgument):
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, application.ErrJournalEntryNotFound):
+		return nil, status.Error(codes.NotFound, err.Error())
+	case ctx.Err() != nil:
+		return nil, status.FromContextError(ctx.Err()).Err()
+	default:
+		log.Printf("get journal entry: %v", err)
+		return nil, status.Error(codes.Internal, "could not get journal entry")
+	}
+}
+
 func postingSide(side ledgerv1.Side) domain.Side {
 	switch side {
 	case ledgerv1.Side_SIDE_DEBIT:

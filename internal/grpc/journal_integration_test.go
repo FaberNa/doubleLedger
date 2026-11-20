@@ -141,6 +141,37 @@ func TestPostJournalEntryPostgres(t *testing.T) {
 		}
 	})
 
+	t.Run("reads a journal entry with its ordered postings", func(t *testing.T) {
+		posted, err := client.PostJournalEntry(ctx, newRequest(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := posted.GetJournalEntry()
+		got, err := client.GetJournalEntry(ctx, &ledgerv1.GetJournalEntryRequest{JournalEntryId: strings.ToUpper(want.GetId())})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !proto.Equal(got.GetJournalEntry(), want) {
+			t.Fatalf("GetJournalEntry returned %v, want %v", got.GetJournalEntry(), want)
+		}
+	})
+
+	t.Run("distinguishes malformed and unknown journal entry IDs", func(t *testing.T) {
+		for _, tc := range []struct {
+			id   string
+			want codes.Code
+		}{
+			{"", codes.InvalidArgument},
+			{"invalid", codes.InvalidArgument},
+			{uuid.NewString(), codes.NotFound},
+		} {
+			_, err := client.GetJournalEntry(ctx, &ledgerv1.GetJournalEntryRequest{JournalEntryId: tc.id})
+			if status.Code(err) != tc.want {
+				t.Errorf("GetJournalEntry(%q) returned %v, want %v", tc.id, err, tc.want)
+			}
+		}
+	})
+
 	t.Run("rejects invalid input", func(t *testing.T) {
 		request := newRequest(t)
 		request.Postings[0].AmountMinor--

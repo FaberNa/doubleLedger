@@ -9,6 +9,7 @@ terminal. On macOS, install `grpcurl` with `brew install grpcurl` if needed.
 - [CreateAccount](#createaccount)
 - [GetAccount](#getaccount)
 - [PostJournalEntry](#postjournalentry)
+- [GetJournalEntry](#getjournalentry)
 
 ## CreateAccount
 
@@ -79,3 +80,19 @@ The response includes the journal entry ID, timestamp, currency, and ordered
 posting lines. To retry, rerun only the `grpcurl` block with the original key.
 The same payload returns the original entry. Changing the payload while
 keeping the key returns `AlreadyExists`.
+
+## GetJournalEntry
+
+Set `JOURNAL_ENTRY_ID` to the `journalEntry.id` returned by `PostJournalEntry`.
+
+```sh
+JOURNAL_ENTRY_ID='<journal entry UUID>'
+grpcurl -plaintext \
+  -import-path api/proto \
+  -proto ledger/v1/ledger.proto \
+  -d "{\"journalEntryId\":\"$JOURNAL_ENTRY_ID\"}" \
+  127.0.0.1:50051 ledger.v1.LedgerService/GetJournalEntry
+```
+
+The response includes all postings in their original order. A malformed UUID
+returns `InvalidArgument`. An unknown UUID returns `NotFound`.
