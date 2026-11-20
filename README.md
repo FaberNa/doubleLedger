@@ -49,6 +49,38 @@ The journal entry is balanced. The normal balance of cash increases by 100 EUR, 
 
 ## Proposed domain model
 
+```mermaid
+erDiagram
+    JOURNAL_ENTRY ||--|{ POSTING : contains
+    ACCOUNT ||--o{ POSTING : "is referenced by"
+
+    JOURNAL_ENTRY {
+        uuid id PK
+        text idempotency_key UK
+        text description
+        timestamptz posted_at
+    }
+    POSTING {
+        uuid id PK
+        uuid journal_entry_id FK
+        uuid account_id FK
+        integer line_number
+        text side
+        bigint amount_minor
+    }
+    ACCOUNT {
+        uuid id PK
+        text code UK
+        text name
+        text account_type
+        timestamptz created_at
+    }
+```
+
+A journal entry groups at least two postings across at least two distinct
+accounts. Each posting belongs to one entry and references one account.
+An account can exist before it has any postings.
+
 | Entity | Responsibility | Main fields |
 | --- | --- | --- |
 | Account | Identifies a ledger account | ID, unique code, name, type, creation timestamp |
@@ -257,9 +289,9 @@ Run the gRPC integration test against the migrated development database.
 TEST_DATABASE_URL='postgres://doubleledger:doubleledger@127.0.0.1:5432/doubleledger?sslmode=disable' task check
 ```
 
-The test covers account creation and lookup, invalid inputs, missing accounts,
-and concurrent creation requests with equivalent codes. It removes the test
-accounts it creates.
+The integration tests cover account creation and lookup, concurrent account
+creation, balanced journal posting, idempotent retries, and rollback when a
+posting refers to an unknown account. They remove the test data they create.
 
 ### Metrics
 
@@ -280,7 +312,8 @@ to generate observations.
 ## Current status
 
 - **PostgreSQL:** the initial `ledger` schema is managed with Goose migrations.
-- **gRPC server:** the versioned `ledger.v1` API implements `CreateAccount` and
-  `GetAccount`, backed by PostgreSQL.
+- **gRPC server:** the versioned `ledger.v1` API implements `CreateAccount`,
+  `GetAccount`, and `PostJournalEntry`, backed by PostgreSQL. Journal amounts
+  are stored in EUR cents.
 - **Metrics:** the HTTP `/metrics` endpoint exposes Go runtime and gRPC request
   metrics with OpenMetrics support.
