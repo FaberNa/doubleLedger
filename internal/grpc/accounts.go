@@ -18,10 +18,11 @@ import (
 type Server struct {
 	ledgerv1.UnimplementedLedgerServiceServer
 	accounts *application.Accounts
+	journal  *application.Journal
 }
 
-func NewServer(accounts *application.Accounts) *Server {
-	return &Server{accounts: accounts}
+func NewServer(accounts *application.Accounts, journal *application.Journal) *Server {
+	return &Server{accounts: accounts, journal: journal}
 }
 
 func (s *Server) CreateAccount(ctx context.Context, request *ledgerv1.CreateAccountRequest) (*ledgerv1.CreateAccountResponse, error) {

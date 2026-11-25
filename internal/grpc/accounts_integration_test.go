@@ -23,27 +23,31 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestAccountsPostgres(t *testing.T) {
+func postgresTestClient(t *testing.T) (context.Context, *pgxpool.Pool, ledgerv1.LedgerServiceClient) {
+	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("set TEST_DATABASE_URL to a migrated development database")
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	if err := pool.Ping(ctx); err != nil {
 		t.Fatal(err)
 	}
 
 	listener := bufconn.Listen(64 * 1024)
 	server := grpc.NewServer()
-	ledgerv1.RegisterLedgerServiceServer(server, ledgergrpc.NewServer(application.NewAccounts(postgres.NewAccounts(pool))))
+	ledgerv1.RegisterLedgerServiceServer(server, ledgergrpc.NewServer(
+		application.NewAccounts(postgres.NewAccounts(pool)),
+		application.NewJournal(postgres.NewJournal(pool)),
+	))
 	go func() { _ = server.Serve(listener) }()
-	defer server.Stop()
+	t.Cleanup(server.Stop)
 	conn, err := grpc.NewClient("passthrough:///ledger-test",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
@@ -53,8 +57,13 @@ func TestAccountsPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	t.Cleanup(func() { _ = conn.Close() })
 	client := ledgerv1.NewLedgerServiceClient(conn)
+	return ctx, pool, client
+}
+
+func TestAccountsPostgres(t *testing.T) {
+	ctx, pool, client := postgresTestClient(t)
 	const asset = ledgerv1.AccountType_ACCOUNT_TYPE_ASSET
 
 	t.Run("reads an existing account by UUID", func(t *testing.T) {
